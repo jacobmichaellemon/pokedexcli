@@ -9,7 +9,7 @@ import (
     "pokedexcli/internal/pokecache"
 )
 
-type PokeApi struct {
+type locations struct {
 	Count    int    `json:"count"`
 	Next     *string `json:"next"`
 	Previous *string    `json:"previous"`
@@ -17,6 +17,15 @@ type PokeApi struct {
 		Name string `json:"name"`
 		URL  string `json:"url"`
 	} `json:"results"`
+}
+
+type encounters struct {
+	PokemonEncounters []struct {
+		Pokemon struct {
+			Name string `json:"name"`
+			URL  string `json:"url"`
+		} `json:"pokemon"`
+    } `json:"pokemon_encounters"`
 }
 
 func MakeRequest(url string) []byte {
@@ -35,7 +44,7 @@ func MakeRequest(url string) []byte {
     return body
 }
 
-func ListLocations(cache *pokecache.Cache, url string) PokeApi {
+func ListLocations(cache *pokecache.Cache, url string) locations {
     fmt.Println("") //format spacing
 
     res, ok := cache.Get(url)
@@ -44,18 +53,44 @@ func ListLocations(cache *pokecache.Cache, url string) PokeApi {
         cache.Add(url, res)
 	}
     
-    pokeapi := PokeApi{}
-    jsonerr := json.Unmarshal(res, &pokeapi)
+    locations := locations{}
+    jsonerr := json.Unmarshal(res, &locations)
     if jsonerr != nil {
         fmt.Println(jsonerr)
     }
 
     //print the names of the next 20 places from results
-    for i := 0; i < len(pokeapi.Results); i++ {
-        fmt.Printf("%v\n", pokeapi.Results[i].Name)
+    for i := 0; i < len(locations.Results); i++ {
+        fmt.Printf("%v\n", locations.Results[i].Name)
     }
 
     fmt.Println("") //format spacing
 
-    return pokeapi
+    return locations
 }
+
+func ListPokemon(cache *pokecache.Cache, url string) encounters {
+    fmt.Println("") //format spacing
+
+    res, ok := cache.Get(url)
+    if !ok {
+        res = MakeRequest(url)
+        cache.Add(url, res)
+	}
+    
+    encounters := encounters{}
+    jsonerr := json.Unmarshal(res, &encounters)
+    if jsonerr != nil {
+        fmt.Println(jsonerr)
+    }
+
+    //print the names of the pokemon found on the route you explored
+    for i := 0; i < len(encounters.PokemonEncounters); i++ {
+        fmt.Printf("%v\n", encounters.PokemonEncounters[i].Pokemon.Name)
+    }
+
+    fmt.Println("") //format spacing
+
+    return encounters
+}
+

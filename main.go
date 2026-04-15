@@ -23,6 +23,7 @@ type config struct {
 var commands map[string]cliCommand
 var cfg *config
 var cache *pokecache.Cache
+var url string
 const baseTime = 20 * time.Second
 
 func init() {
@@ -54,7 +55,7 @@ func init() {
         },
     }
 
-    url := "https://pokeapi.co/api/v2/location-area/"
+    url = "https://pokeapi.co/api/v2/location-area/"
     cfg = &config{
         Next:     &url,
         Previous: nil, 
@@ -119,7 +120,7 @@ func commandMapb(cfg *config, area string) error {
 }
 
 func commandExplore(cfg *config, area string) error {
-    //pokeapi := ListLocations(baseURL + area)
+    pokeapi.ListPokemon(cache, (url + area))
     return nil
 }
 
