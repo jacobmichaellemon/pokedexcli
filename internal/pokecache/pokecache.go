@@ -16,7 +16,6 @@ func (c *Cache) Write(key string, val cacheEntry) {
     c.mu.Lock()         // Acquire exclusive access
     defer c.mu.Unlock() // Ensure unlock happens at the end
     c.entries[key] = val
-	fmt.Printf("Cache entry with key:%v has been added!\n", key)
 }
 
 func (c *Cache) Read(key string) ([]byte, bool) {

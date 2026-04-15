@@ -109,10 +109,10 @@ func MakeRequest(url string) []byte {
 }
 
 func ListLocations(url string) PokeApi {
+    fmt.Println("") //format spacing
+
     res, ok := cache.Get(url)
-    fmt.Printf("Tried to retrieve: %v from the cache success: %v \n", res, ok)
     if !ok {
-        fmt.Println("Cache not found, making a request!!")
         res = MakeRequest(url)
         cache.Add(url, res)
 	}
@@ -127,6 +127,8 @@ func ListLocations(url string) PokeApi {
     for i := 0; i < len(pokeapi.Results); i++ {
         fmt.Printf("%v\n", pokeapi.Results[i].Name)
     }
+
+    fmt.Println("") //format spacing
 
     return pokeapi
 }
