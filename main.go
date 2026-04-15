@@ -8,6 +8,8 @@ import (
     "log"
     "io"
     "encoding/json"
+    "time"
+    "pokedexcli/internal/pokecache"
 )
 
 type cliCommand struct {
@@ -33,6 +35,8 @@ type PokeApi struct {
 
 var commands map[string]cliCommand
 var cfg *config
+var cache *pokecache.Cache
+const baseTime = 20 * time.Second
 
 func init() {
     commands = map[string]cliCommand{
@@ -48,12 +52,12 @@ func init() {
         },
         "map": {
             name:           "map",
-            description:    "displays the next 20 locations in the Pokemon world",
+            description:    "Displays the next 20 locations in the Pokemon world",
             callback:       commandMap,
         },
         "mapb": {
             name:           "mapb",
-            description:    "displays the previous 20 locations in the Pokemon world",
+            description:    "Displays the previous 20 locations in the Pokemon world",
             callback:       commandMapb,
         },
     }
@@ -63,6 +67,7 @@ func init() {
         Next:     &url,
         Previous: nil, 
     }
+    cache = pokecache.NewCache(baseTime)
 
 }
 
@@ -87,14 +92,8 @@ func main() {
     }
 }
 
-func commandMap(cfg *config) error {
-
-    if cfg.Next == nil {
-        fmt.Println("You have traveled to far adventurer!! Try: mapb")
-        return nil
-    }
-
-    res, err := http.Get(*cfg.Next)
+func MakeRequest(url string) []byte {
+    res, err := http.Get(url)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -106,22 +105,43 @@ func commandMap(cfg *config) error {
 	if err != nil {
 		log.Fatal(err)
     }
+    return body
+}
 
+func ListLocations(url string) PokeApi {
+    res, ok := cache.Get(url)
+    fmt.Printf("Tried to retrieve: %v from the cache success: %v \n", res, ok)
+    if !ok {
+        fmt.Println("Cache not found, making a request!!")
+        res = MakeRequest(url)
+        cache.Add(url, res)
+	}
+    
     pokeapi := PokeApi{}
-    jsonerr := json.Unmarshal(body, &pokeapi)
+    jsonerr := json.Unmarshal(res, &pokeapi)
     if jsonerr != nil {
         fmt.Println(jsonerr)
     }
-
-    fmt.Println("Next URL:", *pokeapi.Next)
-
-    cfg.Next = pokeapi.Next
-    cfg.Previous = pokeapi.Previous
 
     //print the names of the next 20 places from results
     for i := 0; i < len(pokeapi.Results); i++ {
         fmt.Printf("%v\n", pokeapi.Results[i].Name)
     }
+
+    return pokeapi
+}
+
+func commandMap(cfg *config) error {
+
+    if cfg.Next == nil {
+        fmt.Println("You have traveled to far adventurer!! Try: mapb")
+        return nil
+    }
+
+    pokeapi := ListLocations(*cfg.Next)
+
+    cfg.Next = pokeapi.Next
+    cfg.Previous = pokeapi.Previous
 
     return nil
 }
@@ -133,32 +153,10 @@ func commandMapb(cfg *config) error {
         return nil
     }
 
-    res, err := http.Get(*cfg.Previous)
-	if err != nil {
-		log.Fatal(err)
-	}
-	body, err := io.ReadAll(res.Body)
-	res.Body.Close()
-	if res.StatusCode > 299 {
-		log.Fatalf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
-	}
-	if err != nil {
-		log.Fatal(err)
-    }
-
-    pokeapi := PokeApi{}
-    jsonerr := json.Unmarshal(body, &pokeapi)
-    if jsonerr != nil {
-        fmt.Println(jsonerr)
-    }
+    pokeapi := ListLocations(*cfg.Previous)
 
     cfg.Next = pokeapi.Next
     cfg.Previous = pokeapi.Previous
-
-    //print the names of the previous 20 places from results
-    for i := 0; i < len(pokeapi.Results); i++ {
-        fmt.Printf("%v\n", pokeapi.Results[i].Name)
-    }
 
     return nil
 }
