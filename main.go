@@ -4,33 +4,20 @@ import (
     "fmt"
     "bufio"
     "os"
-    "net/http"
-    "log"
-    "io"
-    "encoding/json"
     "time"
+    "pokedexcli/internal/pokeapi"
     "pokedexcli/internal/pokecache"
 )
 
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(*config) error
+	callback    func(*config, string) error
 }
 
 type config struct {
     Next        *string
     Previous    *string
-}
-
-type PokeApi struct {
-	Count    int    `json:"count"`
-	Next     *string `json:"next"`
-	Previous *string    `json:"previous"`
-	Results  []struct {
-		Name string `json:"name"`
-		URL  string `json:"url"`
-	} `json:"results"`
 }
 
 var commands map[string]cliCommand
@@ -60,6 +47,11 @@ func init() {
             description:    "Displays the previous 20 locations in the Pokemon world",
             callback:       commandMapb,
         },
+        "explore": {
+            name:           "explore",
+            description:    "Displays all of the pokemon in an area passed as a parameter (i.e. explore viridian city)",
+            callback:       commandExplore,
+        },
     }
 
     url := "https://pokeapi.co/api/v2/location-area/"
@@ -67,8 +59,8 @@ func init() {
         Next:     &url,
         Previous: nil, 
     }
-    cache = pokecache.NewCache(baseTime)
 
+    cache = pokecache.NewCache(baseTime)
 }
 
 func main() {
@@ -79,91 +71,59 @@ func main() {
         scanner.Scan()
         text := scanner.Text()
         cleaned := cleanInput(text)
+        area := ""
         cmd, ok := commands[cleaned[0]]
+        if len(cleaned) > 1 {
+            area = cleaned[1]
+        }
         if !ok {
             // command not found
             fmt.Println("Unknown command")
             continue
         }
-        err := cmd.callback(cfg)
+        err := cmd.callback(cfg, area)
         if err != nil {
             fmt.Println(err)
         }
     }
 }
 
-func MakeRequest(url string) []byte {
-    res, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err)
-	}
-	body, err := io.ReadAll(res.Body)
-	res.Body.Close()
-	if res.StatusCode > 299 {
-		log.Fatalf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
-	}
-	if err != nil {
-		log.Fatal(err)
-    }
-    return body
-}
-
-func ListLocations(url string) PokeApi {
-    fmt.Println("") //format spacing
-
-    res, ok := cache.Get(url)
-    if !ok {
-        res = MakeRequest(url)
-        cache.Add(url, res)
-	}
-    
-    pokeapi := PokeApi{}
-    jsonerr := json.Unmarshal(res, &pokeapi)
-    if jsonerr != nil {
-        fmt.Println(jsonerr)
-    }
-
-    //print the names of the next 20 places from results
-    for i := 0; i < len(pokeapi.Results); i++ {
-        fmt.Printf("%v\n", pokeapi.Results[i].Name)
-    }
-
-    fmt.Println("") //format spacing
-
-    return pokeapi
-}
-
-func commandMap(cfg *config) error {
+func commandMap(cfg *config, area string) error {
 
     if cfg.Next == nil {
         fmt.Println("You have traveled to far adventurer!! Try: mapb")
         return nil
     }
 
-    pokeapi := ListLocations(*cfg.Next)
+    locations := pokeapi.ListLocations(cache, *cfg.Next)
 
-    cfg.Next = pokeapi.Next
-    cfg.Previous = pokeapi.Previous
+    cfg.Next = locations.Next
+    cfg.Previous = locations.Previous
 
     return nil
 }
 
-func commandMapb(cfg *config) error {
+func commandMapb(cfg *config, area string) error {
 
     if cfg.Previous == nil {
         fmt.Println("In the starting area!! Try: map")
         return nil
     }
 
-    pokeapi := ListLocations(*cfg.Previous)
+    locations := pokeapi.ListLocations(cache, *cfg.Previous)
 
-    cfg.Next = pokeapi.Next
-    cfg.Previous = pokeapi.Previous
+    cfg.Next = locations.Next
+    cfg.Previous = locations.Previous
 
     return nil
 }
 
-func commandHelp(cfg *config) error {
+func commandExplore(cfg *config, area string) error {
+    //pokeapi := ListLocations(baseURL + area)
+    return nil
+}
+
+func commandHelp(cfg *config, area string) error {
     fmt.Println("")
     fmt.Println("Welcome to the Pokedex!")
     fmt.Println("Usage:")
@@ -176,7 +136,7 @@ func commandHelp(cfg *config) error {
     return nil
 }
 
-func commandExit(cfg *config) error {
+func commandExit(cfg *config, area string) error {
     fmt.Println("Closing the Pokedex... Goodbye!")
     os.Exit(0)
     return nil
