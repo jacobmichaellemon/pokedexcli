@@ -60,6 +60,11 @@ func init() {
             description:    "Throw a pokeball at the pokemon passed as a parameter (i.e. catch pikachu)",
             callback:       commandCatch,
         },
+        "inspect": {
+            name:           "inspect",
+            description:    "It takes the name of a Pokemon and prints the name, height, weight, stats and type(s) of the Pokemon.",
+            callback:       commandInspect,
+        },
     }
 
     pokedex = map[string]pokeapi.Pokemon{}
@@ -133,21 +138,45 @@ func commandExplore(cfg *config, area string) error {
 }
 
 func commandCatch(cfg *config, mon string) error {
+    fmt.Println("")
     pokemonUrl := "https://pokeapi.co/api/v2/pokemon/" + mon
     fmt.Printf("Throwing a Pokeball at %v...", mon)
     pokemon := pokeapi.GetPokemonBaseLevel(cache, pokemonUrl)
-    fmt.Printf("Pokemon at base xp %v...\n", pokemon.BaseExperience)
     catchChance := rand.Intn(pokemon.BaseExperience)
-    fmt.Printf("Random chance rolled %v...\n", catchChance)
     throwChance := float64(float64(catchChance)/float64(pokemon.BaseExperience))
     baseChance := float64(0.35)
-    fmt.Printf("Throw chance was:  %f...\n", throwChance)
     if throwChance > baseChance {
         pokedex[mon] = pokemon
         fmt.Printf("%v was caught!\n", mon)
     } else {
         fmt.Printf("%v escaped!\n", mon)
     }
+
+
+    fmt.Println("")
+    return nil
+}
+
+func commandInspect(cfg *config, pokemon string) error {
+    fmt.Println("")
+    mon, ok := pokedex[pokemon]
+    if !ok {
+        fmt.Println("you have not caught that pokemon")
+    }
+    fmt.Printf("Name: %v \n", mon.Name)
+    fmt.Printf("BaseExperience: %v \n", mon.BaseExperience)
+    fmt.Printf("Height: %v \n", mon.Height)
+    fmt.Printf("Weight: %v \n", mon.Weight)
+    fmt.Println("Stats:")
+    for index, _ := range mon.Stats {
+        fmt.Printf("-%v: %d\n", mon.Stats[index].Stat.Name, mon.Stats[index].BaseStat)
+    }
+    fmt.Println("Types:")
+    for index, _ := range mon.Types {
+        fmt.Printf("- %v\n", mon.Types[index].Type.Name)
+    }
+
+    fmt.Println("")
 
     return nil
 }
