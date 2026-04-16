@@ -7,6 +7,7 @@ import (
     "time"
     "pokedexcli/internal/pokeapi"
     "pokedexcli/internal/pokecache"
+    "math/rand"
 )
 
 type cliCommand struct {
@@ -24,6 +25,7 @@ var commands map[string]cliCommand
 var cfg *config
 var cache *pokecache.Cache
 var url string
+var pokedex map[string]pokeapi.Pokemon
 const baseTime = 20 * time.Second
 
 func init() {
@@ -53,14 +55,20 @@ func init() {
             description:    "Displays all of the pokemon in an area passed as a parameter (i.e. explore viridian city)",
             callback:       commandExplore,
         },
+        "catch": {
+            name:           "catch",
+            description:    "Throw a pokeball at the pokemon passed as a parameter (i.e. catch pikachu)",
+            callback:       commandCatch,
+        },
     }
+
+    pokedex = map[string]pokeapi.Pokemon{}
 
     url = "https://pokeapi.co/api/v2/location-area/"
     cfg = &config{
         Next:     &url,
         Previous: nil, 
     }
-
     cache = pokecache.NewCache(baseTime)
 }
 
@@ -121,6 +129,26 @@ func commandMapb(cfg *config, area string) error {
 
 func commandExplore(cfg *config, area string) error {
     pokeapi.ListPokemon(cache, (url + area))
+    return nil
+}
+
+func commandCatch(cfg *config, mon string) error {
+    pokemonUrl := "https://pokeapi.co/api/v2/pokemon/" + mon
+    fmt.Printf("Throwing a Pokeball at %v...", mon)
+    pokemon := pokeapi.GetPokemonBaseLevel(cache, pokemonUrl)
+    fmt.Printf("Pokemon at base xp %v...\n", pokemon.BaseExperience)
+    catchChance := rand.Intn(pokemon.BaseExperience)
+    fmt.Printf("Random chance rolled %v...\n", catchChance)
+    throwChance := float64(float64(catchChance)/float64(pokemon.BaseExperience))
+    baseChance := float64(0.35)
+    fmt.Printf("Throw chance was:  %f...\n", throwChance)
+    if throwChance > baseChance {
+        pokedex[mon] = pokemon
+        fmt.Printf("%v was caught!\n", mon)
+    } else {
+        fmt.Printf("%v escaped!\n", mon)
+    }
+
     return nil
 }
 

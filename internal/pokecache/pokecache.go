@@ -3,7 +3,6 @@ package pokecache
 import (
 	"time"
 	"sync"
-	"fmt"
 )
 
 type Cache struct {
@@ -63,7 +62,6 @@ func (c *Cache) reapLoop() {
 			cutoff := time.Now().Add(-c.interval) //The cutoff is "now minus the interval"
 			if val.createdAt.Before(cutoff) {
 				delete(c.entries, key)
-				fmt.Printf("This cache entry missed the cutoff:%v it was deleted!!", key)
 			}
 		}
 		c.mu.Unlock()

@@ -28,6 +28,10 @@ type encounters struct {
     } `json:"pokemon_encounters"`
 }
 
+type Pokemon struct {
+	BaseExperience int `json:"base_experience"`
+}
+
 func MakeRequest(url string) []byte {
     res, err := http.Get(url)
 	if err != nil {
@@ -36,7 +40,7 @@ func MakeRequest(url string) []byte {
 	body, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	if res.StatusCode > 299 {
-		log.Fatalf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
+		return nil
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -92,5 +96,23 @@ func ListPokemon(cache *pokecache.Cache, url string) encounters {
     fmt.Println("") //format spacing
 
     return encounters
+}
+
+func GetPokemonBaseLevel(cache *pokecache.Cache, url string) Pokemon {
+    fmt.Println("") //format spacing
+
+    res, ok := cache.Get(url)
+    if !ok {
+        res = MakeRequest(url)
+        cache.Add(url, res)
+	}
+    
+    pokemon := Pokemon{}
+    jsonerr := json.Unmarshal(res, &pokemon)
+    if jsonerr != nil {
+        fmt.Println(jsonerr)
+    }
+
+    return pokemon
 }
 
